@@ -1,107 +1,161 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight, Plus, Filter, MessageSquare, Paperclip, MoreVertical } from 'lucide-react';
+"use client";
 
-const timelineData = [
-  { id: 1, task: '캠페인 기획 및 전략 수립', group: 'Planning', start: '01.01', end: '01.20', progress: 100, status: 'done', team: '전략팀' },
-  { id: 2, task: '브랜드 비주얼 가이드 제작', group: 'Design', start: '01.15', end: '02.10', progress: 100, status: 'done', team: '디자인팀' },
-  { id: 3, task: '메인 홍보 영상 촬영', group: 'Production', start: '02.01', end: '03.05', progress: 85, status: 'in-progress', team: '영상팀' },
-  { id: 4, task: '인플루언서 섭외 및 가이드', group: 'Marketing', start: '02.20', end: '03.20', progress: 60, status: 'in-progress', team: '운영팀' },
-  { id: 5, task: '디지털 광고 매체 부킹', group: 'Marketing', start: '03.10', end: '03.30', progress: 30, status: 'upcoming', team: '매체팀' },
-  { id: 6, task: '캠페인 런칭 및 운영', group: 'Main', start: '04.01', end: '06.30', progress: 0, status: 'upcoming', team: '공통' },
-];
+import { useState } from 'react';
+import { CheckCircle2, Clock, AlertCircle, Plus, X } from 'lucide-react';
+import type { MilestoneRow } from '@/lib/db';
 
-export const TimelineView = () => {
+const STATUS_STYLE = {
+  완료: { icon: CheckCircle2, cls: 'text-emerald-500', badge: 'bg-emerald-50 text-emerald-600 border-emerald-200', line: 'bg-emerald-400' },
+  예정: { icon: Clock,        cls: 'text-blue-400',    badge: 'bg-blue-50 text-blue-600 border-blue-200',         line: 'bg-blue-300'   },
+  지연: { icon: AlertCircle,  cls: 'text-red-400',     badge: 'bg-red-50 text-red-600 border-red-200',           line: 'bg-red-400'    },
+};
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+
+interface Props {
+  milestones: MilestoneRow[];
+  projectId: string;
+}
+
+export function TimelineView({ milestones, projectId }: Props) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ title: '', date: '', team: '', status: '예정' as MilestoneRow['status'] });
+  const [saving, setSaving] = useState(false);
+
+  const done  = milestones.filter(m => m.status === '완료').length;
+  const total = milestones.length;
+
+  const handleAdd = async () => {
+    if (!form.title || !form.date) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/milestones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, ...form }),
+      });
+      if (res.ok) {
+        setAdding(false);
+        setForm({ title: '', date: '', team: '', status: '예정' });
+        window.location.reload();
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-4">
+      {/* 헤더 카드 */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-bold text-gray-900">프로젝트 타임라인</h3>
-          <p className="text-sm text-gray-500">전체 일정 및 리소스 현황</p>
+          <h3 className="text-base font-bold text-gray-900 mb-0.5">프로젝트 타임라인</h3>
+          <p className="text-xs text-gray-400">
+            총 {total}개 마일스톤 · 완료 {done}개
+            {total > 0 && <span className="ml-2 font-bold text-indigo-600">{Math.round((done / total) * 100)}%</span>}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-            <button className="px-3 py-1.5 text-xs font-bold bg-white text-gray-600 border-r border-gray-200">Day</button>
-            <button className="px-3 py-1.5 text-xs font-bold bg-blue-600 text-white">Week</button>
-            <button className="px-3 py-1.5 text-xs font-bold bg-white text-gray-600 border-l border-gray-200">Month</button>
+        <button
+          onClick={() => setAdding(v => !v)}
+          className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
+        >
+          <Plus size={13} />
+          마일스톤 추가
+        </button>
+      </div>
+
+      {/* 추가 폼 */}
+      {adding && (
+        <div className="bg-white rounded-2xl border border-indigo-200 p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-bold text-gray-800">새 마일스톤</p>
+            <button onClick={() => setAdding(false)}><X size={16} className="text-gray-400" /></button>
           </div>
-          <button className="p-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-100">
-            <Plus size={18} />
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <input
+              className="col-span-2 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              placeholder="마일스톤 명 (예: 캠페인 론칭)"
+              value={form.title}
+              onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+            />
+            <input
+              type="date"
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              value={form.date}
+              onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+            />
+            <input
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              placeholder="담당팀 (예: 운영팀)"
+              value={form.team}
+              onChange={e => setForm(p => ({ ...p, team: e.target.value }))}
+            />
+            <select
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              value={form.status}
+              onChange={e => setForm(p => ({ ...p, status: e.target.value as MilestoneRow['status'] }))}
+            >
+              <option value="예정">예정</option>
+              <option value="완료">완료</option>
+              <option value="지연">지연</option>
+            </select>
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={saving}
+            className="w-full py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? '저장 중…' : '저장'}
           </button>
         </div>
-      </div>
+      )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[800px]">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-left w-64">작업 내용</th>
-              <th className="px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-left">진행팀</th>
-              <th className="px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">기간</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-left w-48">진척도</th>
-              <th className="px-4 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">관리</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {timelineData.map((item) => (
-              <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
-                <td className="px-6 py-5">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-gray-800">{item.task}</span>
-                    <span className="text-[10px] font-medium text-gray-400 mt-0.5">{item.group}</span>
+      {/* 타임라인 */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {milestones.length === 0 ? (
+          <div className="p-12 text-center text-gray-400">
+            <p className="font-medium">마일스톤이 없습니다.</p>
+            <p className="text-sm mt-1">상단 버튼으로 추가하세요.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {milestones.map((m, idx) => {
+              const st = STATUS_STYLE[m.status] ?? STATUS_STYLE['예정'];
+              const Icon = st.icon;
+              const isLast = idx === milestones.length - 1;
+              return (
+                <div key={m.id} className="flex gap-0 hover:bg-gray-50/50 transition-colors">
+                  {/* 타임라인 선 */}
+                  <div className="flex flex-col items-center w-12 shrink-0 py-5">
+                    <Icon size={18} className={st.cls} />
+                    {!isLast && <div className={`w-0.5 flex-1 mt-2 ${st.line} opacity-30`} />}
                   </div>
-                </td>
-                <td className="px-4 py-5">
-                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-[11px] font-semibold">{item.team}</span>
-                </td>
-                <td className="px-4 py-5 text-center">
-                  <span className="text-xs font-mono text-gray-500">{item.start} - {item.end}</span>
-                </td>
-                <td className="px-6 py-5">
-                  <div className="space-y-1.5">
-                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          item.status === 'done' ? 'bg-emerald-500' : 
-                          item.status === 'in-progress' ? 'bg-blue-500' : 'bg-gray-200'
-                        }`}
-                        style={{ width: `${item.progress}%` }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] font-bold">
-                      <span className={
-                        item.status === 'done' ? 'text-emerald-500' : 
-                        item.status === 'in-progress' ? 'text-blue-500' : 'text-gray-400'
-                      }>
-                        {item.status === 'done' ? '완료' : item.status === 'in-progress' ? '진행중' : '대기'}
+
+                  {/* 내용 */}
+                  <div className="flex-1 py-5 pr-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">{m.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-400 font-mono">{formatDate(m.date)}</span>
+                          {m.team && <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md font-semibold">{m.team}</span>}
+                        </div>
+                        {m.notes && <p className="text-xs text-gray-400 mt-1">{m.notes}</p>}
+                      </div>
+                      <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-lg border ${st.badge}`}>
+                        {m.status}
                       </span>
-                      <span className="text-gray-400">{item.progress}%</span>
                     </div>
                   </div>
-                </td>
-                <td className="px-4 py-5 text-right">
-                  <div className="flex justify-end gap-2 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-1 hover:text-blue-600"><MessageSquare size={16} /></button>
-                    <button className="p-1 hover:text-blue-600"><Paperclip size={16} /></button>
-                    <button className="p-1 hover:text-gray-600"><MoreVertical size={16} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex justify-center">
-        <div className="flex items-center gap-4">
-          <button className="p-2 rounded-full hover:bg-gray-200 transition-colors text-gray-400">
-            <ChevronLeft size={20} />
-          </button>
-          <span className="text-sm font-bold text-gray-600">February 2026</span>
-          <button className="p-2 rounded-full hover:bg-gray-200 transition-colors text-gray-400">
-            <ChevronRight size={20} />
-          </button>
-        </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
-};
+}

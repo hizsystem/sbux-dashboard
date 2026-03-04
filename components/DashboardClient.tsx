@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, BarChart3, PieChart, Calendar, Database, Clock, Sparkles, RefreshCw, Settings, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, BarChart3, PieChart, Calendar, Database, Clock, Sparkles, RefreshCw, Settings, ChevronLeft, Kanban, Activity } from 'lucide-react';
 import { SummaryView } from '@/components/SummaryView';
 import { KpiTracker } from '@/components/KpiTracker';
 import { BudgetManager } from '@/components/BudgetManager';
 import { TimelineView } from '@/components/TimelineView';
 import { DataBoard } from '@/components/DataBoard';
+import { CampaignKanban } from '@/components/CampaignKanban';
+import { ActivityLog } from '@/components/ActivityLog';
 import type { ProjectData } from '@/lib/sheets';
-import type { ProjectRow, CampaignRow } from '@/lib/db';
+import type { ProjectRow, CampaignRow, MilestoneRow, ActivityRow } from '@/lib/db';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -17,23 +19,27 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type TabType = 'summary' | 'kpi' | 'budget' | 'timeline' | 'data';
+type TabType = 'summary' | 'kanban' | 'kpi' | 'budget' | 'timeline' | 'data' | 'activity';
 
 const navItems = [
   { id: 'summary',  label: 'SUMMARY',      icon: LayoutDashboard },
-  { id: 'kpi',      label: 'KPI 트래킹',   icon: BarChart3 },
-  { id: 'budget',   label: '예산/마진 관리', icon: PieChart },
-  { id: 'timeline', label: '타임라인',      icon: Calendar },
-  { id: 'data',     label: '데이터 보드',   icon: Database },
+  { id: 'kanban',   label: '캠페인 칸반',   icon: Kanban          },
+  { id: 'kpi',      label: 'KPI 트래킹',   icon: BarChart3       },
+  { id: 'budget',   label: '예산/마진',     icon: PieChart        },
+  { id: 'timeline', label: '타임라인',      icon: Calendar        },
+  { id: 'data',     label: '데이터 보드',   icon: Database        },
+  { id: 'activity', label: '활동 로그',     icon: Activity        },
 ];
 
 interface Props {
   project: ProjectRow;
   campaigns: CampaignRow[];
+  milestones: MilestoneRow[];
+  activities: ActivityRow[];
   projectData: ProjectData | null;
 }
 
-export default function DashboardClient({ project, campaigns, projectData }: Props) {
+export default function DashboardClient({ project, campaigns, milestones, activities, projectData }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [refreshing, setRefreshing] = useState(false);
@@ -48,10 +54,12 @@ export default function DashboardClient({ project, campaigns, projectData }: Pro
   const renderContent = () => {
     switch (activeTab) {
       case 'summary':  return <SummaryView project={project} campaigns={campaigns} projectData={projectData} />;
+      case 'kanban':   return <CampaignKanban campaigns={campaigns} />;
       case 'kpi':      return <KpiTracker projectData={projectData} />;
       case 'budget':   return <BudgetManager project={project} projectData={projectData} />;
-      case 'timeline': return <TimelineView />;
+      case 'timeline': return <TimelineView milestones={milestones} projectId={project.id} />;
       case 'data':     return <DataBoard />;
+      case 'activity': return <ActivityLog activities={activities} />;
       default:         return <SummaryView project={project} campaigns={campaigns} projectData={projectData} />;
     }
   };
@@ -75,8 +83,15 @@ export default function DashboardClient({ project, campaigns, projectData }: Pro
           </div>
         </div>
 
+        {/* 프로젝트명 */}
+        <div className="px-4 py-3 border-b border-gray-50">
+          <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest mb-1">현재 프로젝트</p>
+          <p className="text-xs font-bold text-gray-700 leading-snug line-clamp-2">{project.name}</p>
+          {project.client && <p className="text-[10px] text-gray-400 mt-0.5">{project.client}</p>}
+        </div>
+
         {/* 뒤로가기 */}
-        <div className="px-3 pt-3">
+        <div className="px-3 pt-2">
           <button
             onClick={() => router.push('/')}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-700 font-medium transition-all duration-150"
@@ -87,7 +102,7 @@ export default function DashboardClient({ project, campaigns, projectData }: Pro
         </div>
 
         {/* 탭 네비게이션 */}
-        <nav className="flex-1 px-3 py-2 space-y-0.5">
+        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
           {navItems.map(({ id, label, icon: Icon }) => {
             const active = activeTab === id;
             return (
@@ -114,7 +129,7 @@ export default function DashboardClient({ project, campaigns, projectData }: Pro
         </nav>
 
         {/* 하단 */}
-        <div className="px-3 pb-4 space-y-2">
+        <div className="px-3 pb-4 space-y-2 border-t border-gray-100 pt-3">
           <button
             onClick={() => router.push(`/projects/${project.id}/admin`)}
             className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-indigo-50 hover:text-indigo-700 font-medium transition-all duration-150"
@@ -160,7 +175,7 @@ export default function DashboardClient({ project, campaigns, projectData }: Pro
             </button>
             <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
               <Clock size={12} />
-              Project v3.0.0
+              Project v4.0.0
             </div>
           </div>
         </header>
