@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, BarChart3, PieChart, Calendar, Database, Clock, Sparkles, RefreshCw, Settings } from 'lucide-react';
+import { LayoutDashboard, BarChart3, PieChart, Calendar, Database, Clock, Sparkles, RefreshCw, Settings, ChevronLeft } from 'lucide-react';
 import { SummaryView } from '@/components/SummaryView';
 import { KpiTracker } from '@/components/KpiTracker';
 import { BudgetManager } from '@/components/BudgetManager';
 import { TimelineView } from '@/components/TimelineView';
 import { DataBoard } from '@/components/DataBoard';
 import type { ProjectData } from '@/lib/sheets';
-import { getAdminData, type AdminData } from '@/lib/localData';
+import type { ProjectRow, CampaignRow } from '@/lib/db';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -20,44 +20,39 @@ function cn(...inputs: ClassValue[]) {
 type TabType = 'summary' | 'kpi' | 'budget' | 'timeline' | 'data';
 
 const navItems = [
-  { id: 'summary', label: 'SUMMARY',     icon: LayoutDashboard },
-  { id: 'kpi',     label: 'KPI 트래킹',  icon: BarChart3 },
-  { id: 'budget',  label: '예산/마진 관리', icon: PieChart },
-  { id: 'timeline',label: '타임라인',     icon: Calendar },
-  { id: 'data',    label: '데이터 보드',  icon: Database },
+  { id: 'summary',  label: 'SUMMARY',      icon: LayoutDashboard },
+  { id: 'kpi',      label: 'KPI 트래킹',   icon: BarChart3 },
+  { id: 'budget',   label: '예산/마진 관리', icon: PieChart },
+  { id: 'timeline', label: '타임라인',      icon: Calendar },
+  { id: 'data',     label: '데이터 보드',   icon: Database },
 ];
 
 interface Props {
+  project: ProjectRow;
+  campaigns: CampaignRow[];
   projectData: ProjectData | null;
 }
 
-export default function DashboardClient({ projectData }: Props) {
+export default function DashboardClient({ project, campaigns, projectData }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [refreshing, setRefreshing] = useState(false);
-  const [adminData, setAdminData] = useState<AdminData | null>(null);
-
-  useEffect(() => {
-    setAdminData(getAdminData());
-  }, []);
 
   const activeLabel = navItems.find(n => n.id === activeTab)?.label ?? '';
 
   const handleRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => {
-      window.location.reload();
-    }, 300);
+    setTimeout(() => window.location.reload(), 300);
   };
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'summary':  return <SummaryView projectData={projectData} adminData={adminData} />;
+      case 'summary':  return <SummaryView project={project} campaigns={campaigns} projectData={projectData} />;
       case 'kpi':      return <KpiTracker projectData={projectData} />;
-      case 'budget':   return <BudgetManager projectData={projectData} adminData={adminData} />;
+      case 'budget':   return <BudgetManager project={project} projectData={projectData} />;
       case 'timeline': return <TimelineView />;
       case 'data':     return <DataBoard />;
-      default:         return <SummaryView projectData={projectData} adminData={adminData} />;
+      default:         return <SummaryView project={project} campaigns={campaigns} projectData={projectData} />;
     }
   };
 
@@ -66,6 +61,8 @@ export default function DashboardClient({ projectData }: Props) {
 
       {/* ── 사이드바 ── */}
       <aside className="w-56 bg-white border-r border-gray-100 flex flex-col sticky top-0 h-screen z-20 shrink-0">
+
+        {/* 로고 */}
         <div className="px-5 py-5 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-sm">
@@ -78,7 +75,19 @@ export default function DashboardClient({ projectData }: Props) {
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        {/* 뒤로가기 */}
+        <div className="px-3 pt-3">
+          <button
+            onClick={() => router.push('/')}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-700 font-medium transition-all duration-150"
+          >
+            <ChevronLeft size={13} />
+            전체 프로젝트
+          </button>
+        </div>
+
+        {/* 탭 네비게이션 */}
+        <nav className="flex-1 px-3 py-2 space-y-0.5">
           {navItems.map(({ id, label, icon: Icon }) => {
             const active = activeTab === id;
             return (
@@ -104,9 +113,10 @@ export default function DashboardClient({ projectData }: Props) {
           })}
         </nav>
 
+        {/* 하단 */}
         <div className="px-3 pb-4 space-y-2">
           <button
-            onClick={() => router.push('/admin')}
+            onClick={() => router.push(`/projects/${project.id}/admin`)}
             className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-indigo-50 hover:text-indigo-700 font-medium transition-all duration-150"
           >
             <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-transparent">
@@ -114,16 +124,18 @@ export default function DashboardClient({ projectData }: Props) {
             </span>
             데이터 관리
           </button>
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 border border-gray-100">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <span className="text-xs font-semibold text-gray-700">구글 시트 연동 중</span>
+          {project.sheets_url && (
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 border border-gray-100">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-xs font-semibold text-gray-700">구글 시트 연동 중</span>
+              </div>
+              <p className="text-[10px] text-gray-400 pl-4">60초마다 자동 갱신</p>
             </div>
-            <p className="text-[10px] text-gray-400 pl-4">60초마다 자동 갱신</p>
-          </div>
+          )}
         </div>
       </aside>
 
@@ -132,7 +144,7 @@ export default function DashboardClient({ projectData }: Props) {
         <header className="bg-white/80 backdrop-blur border-b border-gray-100 px-8 py-3.5 sticky top-0 z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-base font-bold text-gray-900 tracking-tight">{activeLabel}</h2>
-            {activeTab === 'summary' && (
+            {activeTab === 'summary' && project.sheets_url && (
               <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100">
                 구글 시트 연동
               </span>
@@ -148,7 +160,7 @@ export default function DashboardClient({ projectData }: Props) {
             </button>
             <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
               <Clock size={12} />
-              Project v2.4.0
+              Project v3.0.0
             </div>
           </div>
         </header>

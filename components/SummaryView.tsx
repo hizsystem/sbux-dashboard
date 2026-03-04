@@ -56,41 +56,39 @@ function ProgressBar({ value, color = 'bg-indigo-500' }: { value: number; color?
 
 // ── 메인 컴포넌트 ──────────────────────────────────────
 import type { ProjectData } from '@/lib/sheets';
-import type { AdminData } from '@/lib/localData';
+import type { ProjectRow, CampaignRow } from '@/lib/db';
 
 interface SummaryViewProps {
   projectData?: ProjectData | null;
-  adminData?: AdminData | null;
+  project?: ProjectRow | null;
+  campaigns?: CampaignRow[];
 }
 
-export const SummaryView = ({ projectData, adminData }: SummaryViewProps = {}) => {
-  // adminData가 있으면 최우선 사용, 없으면 Google Sheets, 없으면 기본값
-  const ad = adminData?.project;
+export const SummaryView = ({ projectData, project: dbProject, campaigns: dbCampaigns = [] }: SummaryViewProps = {}) => {
   const project = {
-    name: ad?.name ?? projectData?.name ?? '2026 네슬레 스타벅스앳홈 프로젝트',
-    manager: ad?.manager ?? projectData?.manager ?? '이슬기 PM',
-    dates: ad?.period ?? projectData?.period ?? '2026.01.01 ~ 2026.06.30',
-    progress: ad?.progress ?? 45,
-    totalBudget: ad?.totalBudget ?? projectData?.totalBudget ?? '₩ 150,000,000',
-    budgetRate: ad?.executionRate ?? projectData?.executionRate ?? 20,
-    kpi: ad?.kpi ?? projectData?.igFollowersRate ?? 74,
-    riskGreen: ad?.riskGreen ?? 3,
-    riskYellow: ad?.riskYellow ?? 1,
-    riskRed: ad?.riskRed ?? 0,
-    campaignCount: adminData?.campaigns?.length ?? 2,
+    name: dbProject?.name ?? projectData?.name ?? '2026 네슬레 스타벅스앳홈 프로젝트',
+    manager: dbProject?.manager ?? projectData?.manager ?? '이슬기 PM',
+    dates: dbProject?.period ?? projectData?.period ?? '2026.01.01 ~ 2026.06.30',
+    progress: dbProject?.progress ?? 45,
+    totalBudget: dbProject?.total_budget ?? projectData?.totalBudget ?? '₩ 150,000,000',
+    budgetRate: dbProject?.execution_rate ?? projectData?.executionRate ?? 20,
+    kpi: dbProject?.kpi ?? projectData?.igFollowersRate ?? 74,
+    riskGreen: dbProject?.risk_green ?? 3,
+    riskYellow: dbProject?.risk_yellow ?? 1,
+    riskRed: dbProject?.risk_red ?? 0,
+    campaignCount: dbCampaigns.length || 2,
   };
 
-  const campaigns = adminData?.campaigns ?? [
-    { id: 1, name: '인스타그램 & 카카오톡 기획/운영', phase: '제작', progress: 75, budget: '₩ 450M', spent: '₩ 380M', dates: '01.01 - 04.30' },
-    { id: 2, name: '인플루언서 바이럴 캠페인',        phase: '운영', progress: 30, budget: '₩ 250M', spent: '₩ 80M',  dates: '03.01 - 06.15' },
+  const campaigns = dbCampaigns.length > 0 ? dbCampaigns : [
+    { id: '1', project_id: '', name: '인스타그램 & 카카오톡 기획/운영', phase: '제작', progress: 75, budget: '₩ 450M', spent: '₩ 380M', dates: '01.01 - 04.30', sort_order: 0, created_at: '' },
+    { id: '2', project_id: '', name: '인플루언서 바이럴 캠페인',        phase: '운영', progress: 30, budget: '₩ 250M', spent: '₩ 80M',  dates: '03.01 - 06.15', sort_order: 1, created_at: '' },
   ];
 
-  const st = adminData?.stats;
   const stats = [
-    { label: '종합 ROAS',  value: st?.roas ?? '342%',  sub: '전 캠페인 평균',      icon: <TrendingUp size={16} />,   color: 'text-indigo-500', bg: 'bg-indigo-50' },
-    { label: '총 도달수',  value: st?.reach ?? '24.5M', sub: '목표 대비 105%',      icon: <Users size={16} />,        color: 'text-teal-500',   bg: 'bg-teal-50'   },
-    { label: '완료 과업',  value: st?.tasks ?? '12/48', sub: '전체 마일스톤 기준',  icon: <CheckCircle2 size={16} />, color: 'text-violet-500', bg: 'bg-violet-50' },
-    { label: '활성 채널',  value: st?.channels ?? '12개',  sub: '글로벌 채널 통합',    icon: <Flag size={16} />,         color: 'text-amber-500',  bg: 'bg-amber-50'  },
+    { label: '종합 ROAS',  value: dbProject?.roas  || '342%',  sub: '전 캠페인 평균',     icon: <TrendingUp size={16} />,   color: 'text-indigo-500', bg: 'bg-indigo-50' },
+    { label: '총 도달수',  value: dbProject?.reach || '24.5M', sub: '목표 대비 105%',     icon: <Users size={16} />,        color: 'text-teal-500',   bg: 'bg-teal-50'   },
+    { label: '완료 과업',  value: dbProject?.tasks || '12/48', sub: '전체 마일스톤 기준', icon: <CheckCircle2 size={16} />, color: 'text-violet-500', bg: 'bg-violet-50' },
+    { label: '활성 채널',  value: dbProject?.channels || '12개', sub: '글로벌 채널 통합', icon: <Flag size={16} />,         color: 'text-amber-500',  bg: 'bg-amber-50'  },
   ];
 
   return (

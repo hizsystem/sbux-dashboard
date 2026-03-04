@@ -1,11 +1,11 @@
 // 구글 시트에서 데이터를 가져오는 유틸리티
 
-const SPREADSHEET_ID = '1PclZVVDW9Fg5QSwni-DzhfJHhswR5C792kW9875mqiQ';
-const SHEET_GID = '1217305212';
+const DEFAULT_SPREADSHEET_ID = '1PclZVVDW9Fg5QSwni-DzhfJHhswR5C792kW9875mqiQ';
+const DEFAULT_SHEET_GID = '1217305212';
 
 // gviz API로 시트 데이터 가져오기 (API 키 불필요, 공개 시트)
-async function fetchSheetData(gid: string): Promise<string[][]> {
-  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
+async function fetchSheetData(spreadsheetId: string, gid: string): Promise<string[][]> {
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
   const res = await fetch(url, { next: { revalidate: 60 } }); // 60초마다 자동 갱신
   if (!res.ok) throw new Error('구글 시트 데이터를 불러오지 못했습니다');
   const text = await res.text();
@@ -66,8 +66,11 @@ export interface ProjectData {
   kaFollowersRate: number;
 }
 
-export async function fetchProjectData(): Promise<ProjectData> {
-  const rows = await fetchSheetData(SHEET_GID);
+export async function fetchProjectData(
+  spreadsheetId = DEFAULT_SPREADSHEET_ID,
+  gid = DEFAULT_SHEET_GID
+): Promise<ProjectData> {
+  const rows = await fetchSheetData(spreadsheetId, gid);
 
   // 예산 — B열 레이블, C열(offset=1) 값
   const totalBudgetRaw = findValue(rows, '총 예산', 1);       // row[2] = "150,000,000"

@@ -1,15 +1,6 @@
-import { fetchProjectData } from '@/lib/sheets';
-import DashboardClient from '@/components/DashboardClient';
+import { redirect } from 'next/navigation';
 
-export const revalidate = 60; // 60초마다 최신 데이터로 갱신
-
-export default async function DashboardPage() {
-  let projectData = null;
-  try {
-    projectData = await fetchProjectData();
-  } catch (e) {
-    console.error('시트 데이터 로드 실패:', e);
-  }
-
-  return <DashboardClient projectData={projectData} />;
+// /projects/[id] 라우트로 이전됨
+export default function DashboardPage() {
+  redirect('/');
 }
