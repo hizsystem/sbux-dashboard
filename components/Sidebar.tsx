@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, TrendingUp, Wallet, CalendarDays, Database } from "lucide-react";
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Wallet,
+  CalendarDays,
+  Database,
+} from "lucide-react";
 
 const navItems = [
   { href: "/", label: "SUMMARY", icon: LayoutDashboard },
@@ -16,33 +22,67 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-48 min-h-screen bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0">
+    <aside
+      style={{
+        width: 192,
+        minHeight: "100vh",
+        background: "#fff",
+        borderRight: "1px solid #e5e7eb",
+        position: "fixed",
+        left: 0,
+        top: 0,
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 100,
+      }}
+    >
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-100">
-        <div className="flex items-center gap-2 mb-0.5">
-          <div className="w-5 h-5 bg-indigo-600 rounded flex items-center justify-center">
-            <span className="text-white text-xs font-bold">P</span>
+      <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid #f3f4f6" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+          <div
+            style={{
+              width: 22,
+              height: 22,
+              background: "#4f46e5",
+              borderRadius: 6,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>P</span>
           </div>
-          <span className="font-bold text-gray-900 text-sm">Project Master</span>
+          <span style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>Project Master</span>
         </div>
-        <p className="text-[10px] text-gray-400 ml-7">MANAGEMENT SYSTEM</p>
+        <p style={{ fontSize: 9, color: "#9ca3af", letterSpacing: "0.08em", marginLeft: 30 }}>
+          MANAGEMENT SYSTEM
+        </p>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: "12px 10px" }}>
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                active
-                  ? "bg-indigo-50 text-indigo-600 font-medium"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              }`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "9px 12px",
+                borderRadius: 8,
+                marginBottom: 2,
+                fontSize: 13,
+                fontWeight: active ? 600 : 400,
+                color: active ? "#4f46e5" : "#6b7280",
+                background: active ? "#eef2ff" : "transparent",
+                textDecoration: "none",
+                transition: "all 0.15s",
+              }}
             >
-              <Icon size={16} />
+              <Icon size={15} />
               {label}
             </Link>
           );
