@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Save, ArrowLeft, Plus, Trash2, RotateCcw, CheckCircle2,
-  Settings, BarChart2, TrendingUp, AlertCircle
+  Settings, BarChart2, TrendingUp, AlertCircle, Download, Loader2
 } from 'lucide-react';
 import { getAdminData, saveAdminData, clearAdminData, DEFAULT_DATA, type AdminData } from '@/lib/localData';
 
@@ -62,6 +62,8 @@ export default function AdminPage() {
 
   const [data, setData] = useState<AdminData>(DEFAULT_DATA);
   const [saved, setSaved] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState('');
 
   useEffect(() => {
     if (authed) {
@@ -84,6 +86,37 @@ export default function AdminPage() {
     saveAdminData(data);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  // ── 구글 시트 불러오기 ──
+  const handleImport = async () => {
+    setImporting(true);
+    setImportMsg('');
+    try {
+      const res = await fetch('/api/sheets');
+      if (!res.ok) throw new Error('시트 연결 실패');
+      const sheets = await res.json();
+      setData(prev => ({
+        ...prev,
+        project: {
+          ...prev.project,
+          totalBudget: sheets.totalBudget ?? prev.project.totalBudget,
+          executionRate: sheets.executionRate ?? prev.project.executionRate,
+          kpi: sheets.igFollowersRate ?? prev.project.kpi,
+        },
+        stats: {
+          ...prev.stats,
+          roas: prev.stats.roas,
+          reach: prev.stats.reach,
+        },
+      }));
+      setImportMsg('✓ 구글 시트에서 불러왔어요');
+    } catch {
+      setImportMsg('✗ 연결 실패 — 잠시 후 다시 시도해주세요');
+    } finally {
+      setImporting(false);
+      setTimeout(() => setImportMsg(''), 4000);
+    }
   };
 
   // ── 초기화 ──
@@ -207,6 +240,19 @@ export default function AdminPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {importMsg && (
+            <span className={`text-xs font-medium ${importMsg.startsWith('✓') ? 'text-emerald-600' : 'text-red-500'}`}>
+              {importMsg}
+            </span>
+          )}
+          <button
+            onClick={handleImport}
+            disabled={importing}
+            className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 border border-indigo-200 rounded-full transition-colors disabled:opacity-50"
+          >
+            {importing ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+            구글 시트 불러오기
+          </button>
           <button
             onClick={handleReset}
             className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 px-3 py-1.5 border border-gray-200 rounded-full transition-colors"
