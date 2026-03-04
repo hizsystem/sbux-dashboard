@@ -259,6 +259,18 @@ export default function ProjectAdminPage() {
             <Field label="PM / 담당자" value={project.manager} onChange={v => setField('manager', v)} />
             <Field label="기간" value={project.period} onChange={v => setField('period', v)} />
             <Field label="총 예산" value={project.total_budget} onChange={v => setField('total_budget', v)} />
+            <Field label="운영 채널" value={project.channels} onChange={v => setField('channels', v)} placeholder="예: IG / KA" />
+            <Field label="핵심 목표" value={project.objective ?? ''} onChange={v => setField('objective', v)} placeholder="예: 채널 성장 + 브랜드 인지도 강화" />
+            <Field label="핵심 KPI" value={project.kpi_desc ?? ''} onChange={v => setField('kpi_desc', v)} placeholder="예: IG 팔로워 25,000 / KA 105,000" />
+            <div className="md:col-span-2 space-y-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">팀 목표</label>
+              <textarea
+                rows={3} value={project.team_goal ?? ''}
+                onChange={e => setField('team_goal', e.target.value)}
+                placeholder="예: 효율성 개선&#10;- 프로젝트 이익률 1% → 10% 개선&#10;- 커뮤니케이션 개선"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition resize-none"
+              />
+            </div>
             <div className="space-y-1">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">상태</label>
               <select value={project.status} onChange={e => setField('status', e.target.value)}

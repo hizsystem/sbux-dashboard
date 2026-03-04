@@ -25,6 +25,9 @@ export interface ProjectRow {
   reach: string;
   tasks: string;
   channels: string;
+  objective: string;  // 핵심 목표
+  kpi_desc: string;   // 핵심 KPI 설명
+  team_goal: string;  // 팀 목표
   sheets_url: string | null;
   sheets_gid: string | null;
   revenue: number;   // 매출 (원)

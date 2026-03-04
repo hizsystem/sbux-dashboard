@@ -1,266 +1,316 @@
 "use client";
 
-import React from 'react';
-import {
-  TrendingUp, Users, Target, Calendar, AlertCircle,
-  CheckCircle2, MoreHorizontal, ChevronRight, Flag, Layers, BarChart2
-} from 'lucide-react';
+import type { ProjectData } from '@/lib/sheets';
+import type { ProjectRow, CampaignRow } from '@/lib/db';
+import { TrendingUp, AlertCircle, Target } from 'lucide-react';
 
-// ── 타입 ──────────────────────────────────────────────
-const PHASE_STYLES: Record<string, { label: string; bar: string; badge: string }> = {
-  '기획': { label: 'text-blue-700 bg-blue-50 border-blue-200',   bar: 'bg-blue-500',   badge: '' },
-  '제작': { label: 'text-violet-700 bg-violet-50 border-violet-200', bar: 'bg-violet-500', badge: '' },
-  '운영': { label: 'text-emerald-700 bg-emerald-50 border-emerald-200', bar: 'bg-emerald-500', badge: '' },
-  '종료': { label: 'text-gray-500 bg-gray-50 border-gray-200',   bar: 'bg-gray-400',   badge: '' },
-};
-
-// ── 도넛 차트 (SVG) ────────────────────────────────────
-function DonutChart({ value, size = 96 }: { value: number; size?: number }) {
-  const r = 38;
-  const cx = 50;
-  const cy = 50;
-  const circumference = 2 * Math.PI * r; // ≈ 238.76
-  const offset = circumference * (1 - value / 100);
-
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100">
-      {/* Track */}
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="9" />
-      {/* Progress */}
-      <circle
-        cx={cx} cy={cy} r={r}
-        fill="none"
-        stroke="#818cf8"
-        strokeWidth="9"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        transform={`rotate(-90 ${cx} ${cy})`}
-        style={{ transition: 'stroke-dashoffset 1s ease' }}
-      />
-      {/* Label */}
-      <text x="50" y="46" textAnchor="middle" fill="white" fontSize="18" fontWeight="800">{value}%</text>
-      <text x="50" y="60" textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize="8" fontWeight="600" letterSpacing="1">진행률</text>
-    </svg>
-  );
+function fmtKRW(n: number) {
+  if (!n) return '—';
+  if (n >= 100_000_000) return `₩ ${(n / 100_000_000).toFixed(0)}억`;
+  if (n >= 10_000)      return `₩ ${(n / 10_000).toFixed(0)}만`;
+  return `₩ ${n.toLocaleString()}`;
 }
 
-// ── 프로그레스 바 ──────────────────────────────────────
-function ProgressBar({ value, color = 'bg-indigo-500' }: { value: number; color?: string }) {
+function fmtNum(n: number) { return n ? n.toLocaleString() : '—'; }
+
+function Bar({ value, color = 'bg-indigo-500' }: { value: number; color?: string }) {
   return (
     <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-      <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%`, transition: 'width 0.7s ease' }} />
+      <div className={`h-full rounded-full ${color} transition-all duration-700`} style={{ width: `${Math.min(value, 100)}%` }} />
     </div>
   );
 }
 
-// ── 메인 컴포넌트 ──────────────────────────────────────
-import type { ProjectData } from '@/lib/sheets';
-import type { ProjectRow, CampaignRow } from '@/lib/db';
+function RateBadge({ rate }: { rate: number }) {
+  const cls = rate >= 80 ? 'bg-emerald-50 text-emerald-700' : rate >= 50 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600';
+  return <span className={`text-xs font-black px-2 py-0.5 rounded-md ${cls}`}>{rate}%</span>;
+}
 
-interface SummaryViewProps {
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-gray-800 text-white px-5 py-2.5">
+      <p className="text-sm font-black tracking-tight">{children}</p>
+    </div>
+  );
+}
+
+interface Props {
   projectData?: ProjectData | null;
   project?: ProjectRow | null;
   campaigns?: CampaignRow[];
 }
 
-export const SummaryView = ({ projectData, project: dbProject, campaigns: dbCampaigns = [] }: SummaryViewProps = {}) => {
-  const project = {
-    name: dbProject?.name ?? projectData?.name ?? '2026 네슬레 스타벅스앳홈 프로젝트',
-    manager: dbProject?.manager ?? projectData?.manager ?? '이슬기 PM',
-    dates: dbProject?.period ?? projectData?.period ?? '2026.01.01 ~ 2026.06.30',
-    progress: dbProject?.progress ?? 45,
-    totalBudget: dbProject?.total_budget ?? projectData?.totalBudget ?? '₩ 150,000,000',
-    budgetRate: dbProject?.execution_rate ?? projectData?.executionRate ?? 20,
-    kpi: dbProject?.kpi ?? projectData?.igFollowersRate ?? 74,
-    riskGreen: dbProject?.risk_green ?? 3,
-    riskYellow: dbProject?.risk_yellow ?? 1,
-    riskRed: dbProject?.risk_red ?? 0,
-    campaignCount: dbCampaigns.length || 2,
+export const SummaryView = ({ projectData, project: p, campaigns = [] }: Props) => {
+  const totalBudgetStr = p?.total_budget ?? projectData?.totalBudget ?? '';
+  const totalBudgetNum = parseInt(totalBudgetStr.replace(/[^0-9]/g, '') || '0');
+  const execRate       = p?.execution_rate ?? projectData?.executionRate ?? 0;
+  const spentNum       = projectData
+    ? parseInt((projectData.spentBudget ?? '').replace(/[^0-9]/g, '') || '0')
+    : Math.round(totalBudgetNum * execRate / 100);
+  const remainingNum   = totalBudgetNum - spentNum;
+
+  const revenue = p?.revenue ?? 0;
+  const cost    = p?.cost    ?? 0;
+  const profit  = revenue - cost;
+  const margin  = revenue > 0 ? Math.round((profit / revenue) * 100) : null;
+
+  const igTarget  = projectData?.igFollowersTarget ?? 25000;
+  const igCurrent = projectData?.igFollowers       ?? 0;
+  const igRate    = projectData?.igFollowersRate    ?? (igTarget > 0 ? Math.round((igCurrent / igTarget) * 100) : 0);
+  const kaTarget  = projectData?.kaFollowersTarget  ?? 105000;
+  const kaCurrent = projectData?.kaFollowers        ?? 0;
+  const kaRate    = projectData?.kaFollowersRate     ?? (kaTarget > 0 ? Math.round((kaCurrent / kaTarget) * 100) : 0);
+
+  const PHASE_COLOR: Record<string, string> = {
+    '기획': 'bg-blue-500', '제작': 'bg-violet-500', '운영': 'bg-emerald-500', '종료': 'bg-gray-300',
+  };
+  const PHASE_BADGE: Record<string, string> = {
+    '기획': 'bg-blue-50 text-blue-700 border-blue-200',
+    '제작': 'bg-violet-50 text-violet-700 border-violet-200',
+    '운영': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    '종료': 'bg-gray-50 text-gray-500 border-gray-200',
   };
 
-  const campaigns = dbCampaigns.length > 0 ? dbCampaigns : [
-    { id: '1', project_id: '', name: '인스타그램 & 카카오톡 기획/운영', phase: '제작', progress: 75, budget: '₩ 450M', spent: '₩ 380M', dates: '01.01 - 04.30', sort_order: 0, created_at: '' },
-    { id: '2', project_id: '', name: '인플루언서 바이럴 캠페인',        phase: '운영', progress: 30, budget: '₩ 250M', spent: '₩ 80M',  dates: '03.01 - 06.15', sort_order: 1, created_at: '' },
-  ];
-
-  const stats = [
-    { label: '종합 ROAS',  value: dbProject?.roas  || '342%',  sub: '전 캠페인 평균',     icon: <TrendingUp size={16} />,   color: 'text-indigo-500', bg: 'bg-indigo-50' },
-    { label: '총 도달수',  value: dbProject?.reach || '24.5M', sub: '목표 대비 105%',     icon: <Users size={16} />,        color: 'text-teal-500',   bg: 'bg-teal-50'   },
-    { label: '완료 과업',  value: dbProject?.tasks || '12/48', sub: '전체 마일스톤 기준', icon: <CheckCircle2 size={16} />, color: 'text-violet-500', bg: 'bg-violet-50' },
-    { label: '활성 채널',  value: dbProject?.channels || '12개', sub: '글로벌 채널 통합', icon: <Flag size={16} />,         color: 'text-amber-500',  bg: 'bg-amber-50'  },
-  ];
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
-      {/* ━━ 1. 히어로 카드 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
-
-        {/* 상단 다크 영역 */}
-        <div className="relative px-8 py-7 text-white" style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%)' }}>
-
-          {/* 배경 점선 패턴 */}
-          <div
-            className="absolute inset-0 opacity-[0.04]"
-            style={{ backgroundImage: 'radial-gradient(circle,#fff 1px,transparent 1px)', backgroundSize: '24px 24px' }}
-          />
-
-          <div className="relative flex items-start justify-between gap-6">
-            {/* 왼쪽: 프로젝트 정보 */}
-            <div className="space-y-3 min-w-0 flex-1">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="px-2.5 py-1 rounded-md bg-indigo-600 text-[10px] font-black uppercase tracking-widest">
-                  Master Project
-                </span>
-                <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-                  </span>
-                  정상 가동 중
-                </span>
-              </div>
-
-              <h1 className="text-xl md:text-2xl font-black leading-snug tracking-tight truncate">
-                {project.name}
-              </h1>
-
-              <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-slate-400">
-                <span className="flex items-center gap-1.5"><Users size={13} />{project.manager}</span>
-                <span className="flex items-center gap-1.5"><Calendar size={13} />{project.dates}</span>
-                <span className="flex items-center gap-1.5"><Layers size={13} />{project.campaignCount}개 캠페인 운영 중</span>
-              </div>
-            </div>
-
-            {/* 오른쪽: 도넛 차트 */}
-            <div className="shrink-0 self-center">
-              <DonutChart value={project.progress} size={100} />
-            </div>
-          </div>
-        </div>
-
-        {/* 하단 지표 3칸 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100 bg-white">
-
-          {/* 예산 */}
-          <div className="px-6 py-5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                <TrendingUp size={11} /> 총 예산 집행
-              </span>
-              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                {project.budgetRate}%
-              </span>
-            </div>
-            <p className="text-lg font-extrabold text-gray-900">{project.totalBudget}</p>
-            <ProgressBar value={project.budgetRate} color="bg-indigo-500" />
-          </div>
-
-          {/* KPI */}
-          <div className="px-6 py-5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Target size={11} /> 마스터 KPI 달성도
-              </span>
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                목표 근접
-              </span>
-            </div>
-            <p className="text-lg font-extrabold text-gray-900">{project.kpi}%</p>
-            <ProgressBar value={project.kpi} color="bg-emerald-500" />
-          </div>
-
-          {/* 리스크 */}
-          <div className="px-6 py-5 space-y-2.5">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-              <AlertCircle size={11} /> 리스크 관리
-            </span>
-            <div className="flex items-center gap-3 pt-0.5">
-              <div className="flex items-center -space-x-2">
+      {/* 1. 프로젝트 개요 */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <SectionTitle>[프로젝트 개요]</SectionTitle>
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+          <div className="col-span-2">
+            <table className="w-full text-sm">
+              <tbody>
                 {[
-                  { n: project.riskGreen,  ring: 'ring-emerald-200', bg: 'bg-emerald-100', text: 'text-emerald-700' },
-                  { n: project.riskYellow, ring: 'ring-amber-200',   bg: 'bg-amber-100',   text: 'text-amber-700'   },
-                  { n: project.riskRed,    ring: 'ring-rose-200',    bg: 'bg-rose-100',    text: 'text-rose-700'    },
-                ].map((r, i) => (
-                  <div key={i} className={`w-8 h-8 rounded-full ring-2 ${r.ring} ${r.bg} flex items-center justify-center text-xs font-bold ${r.text}`}>
-                    {r.n}
-                  </div>
+                  { label: '프로젝트명', value: p?.name ?? '—' },
+                  { label: '운영 기간',  value: p?.period ?? '—' },
+                  { label: '핵심 목표',  value: p?.objective || '—' },
+                  { label: '핵심 KPI',   value: p?.kpi_desc || '—' },
+                  { label: '운영 채널',  value: p?.channels || '—' },
+                  { label: '담당',       value: p?.manager ?? '—' },
+                ].map(({ label, value }) => (
+                  <tr key={label} className="border-b border-gray-100 last:border-0">
+                    <td className="px-5 py-3 font-bold text-gray-500 w-28 bg-gray-50 border-r border-gray-100 text-xs">{label}</td>
+                    <td className="px-5 py-3 text-gray-800 font-medium text-sm">{value}</td>
+                  </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-5 flex flex-col gap-4">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">팀 목표</p>
+              {p?.team_goal
+                ? <div className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{p.team_goal}</div>
+                : <p className="text-sm text-gray-300">데이터 관리에서 입력하세요</p>}
+            </div>
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <div>
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span className="font-bold text-gray-500">전체 진행률</span>
+                  <span className="font-black text-indigo-600">{p?.progress ?? 0}%</span>
+                </div>
+                <Bar value={p?.progress ?? 0} />
               </div>
-              <p className="text-xs text-gray-500">
-                {project.riskGreen + project.riskYellow + project.riskRed}건 중{' '}
-                <span className="font-semibold text-amber-600">{project.riskYellow}건 주의</span>
-              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <AlertCircle size={11} className="text-gray-300" />
+                <span className="text-gray-400">리스크</span>
+                <span className="text-emerald-600 font-bold">정상 {p?.risk_green ?? 0}</span>
+                <span className="text-amber-500 font-bold">주의 {p?.risk_yellow ?? 0}</span>
+                <span className="text-red-500 font-bold">위험 {p?.risk_red ?? 0}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ━━ 2. 캠페인별 진행 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-            <BarChart2 size={15} className="text-indigo-500" />
-            캠페인별 진행 상황
-          </h2>
-          <button className="text-xs font-semibold text-gray-400 hover:text-indigo-600 flex items-center gap-0.5 transition-colors">
-            전체 보기 <ChevronRight size={13} />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {campaigns.map((c) => {
-            const s = PHASE_STYLES[c.phase] ?? PHASE_STYLES['종료'];
-            return (
-              <div key={c.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm group hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div className="min-w-0">
-                    <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${s.label}`}>
-                      {c.phase}
-                    </span>
-                    <p className="mt-2 text-sm font-bold text-gray-900 leading-snug group-hover:text-indigo-600 transition-colors">
-                      {c.name}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-[10px] text-gray-400">{c.dates}</p>
-                    <p className="text-sm font-black text-gray-800 mt-0.5">{c.progress}%</p>
-                  </div>
-                </div>
-
-                <ProgressBar value={c.progress} color={s.bar} />
-
-                <div className="flex items-center justify-between mt-3 text-xs">
-                  <div className="flex gap-4 text-gray-500">
-                    <span>예산 <span className="font-semibold text-gray-700">{c.budget}</span></span>
-                    <span>집행 <span className="font-semibold text-indigo-600">{c.spent}</span></span>
-                  </div>
-                  <button className="text-gray-300 hover:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <MoreHorizontal size={15} />
-                  </button>
-                </div>
+      {/* 2. KPI 진행 현황 */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <SectionTitle>[KPI 진행 현황]</SectionTitle>
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+          {[
+            { label: '📸 IG (Instagram)', bg: 'bg-pink-50 border-pink-100', textCls: 'text-pink-600',
+              rows: [
+                { name: '팔로워', target: igTarget, current: igCurrent, rate: igRate, hasData: !!igCurrent },
+                { name: '월 평균 도달', target: 120000, current: 0, rate: 0, hasData: false },
+                { name: '평균 참여율', target: 0, current: 0, rate: 0, hasData: false },
+              ]},
+            { label: '💬 KA (KakaoStory)', bg: 'bg-yellow-50 border-yellow-100', textCls: 'text-yellow-700',
+              rows: [
+                { name: '팔로워', target: kaTarget, current: kaCurrent, rate: kaRate, hasData: !!kaCurrent },
+                { name: '월 평균 도달', target: 0, current: 0, rate: 0, hasData: false },
+                { name: '광고 기여율', target: 0, current: 0, rate: 0, hasData: false },
+              ]},
+          ].map(({ label, bg, textCls, rows }) => (
+            <div key={label}>
+              <div className={`px-5 py-2.5 border-b ${bg}`}>
+                <p className={`text-xs font-black ${textCls}`}>{label}</p>
               </div>
-            );
-          })}
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    {['지표','목표','현재','달성률'].map(h => (
+                      <th key={h} className={`px-4 py-2 text-[10px] font-bold text-gray-400 uppercase ${h === '지표' ? 'text-left' : 'text-right'}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {rows.map(r => (
+                    <tr key={r.name} className="hover:bg-gray-50/50">
+                      <td className="px-4 py-3 font-bold text-gray-700">{r.name}</td>
+                      <td className="px-4 py-3 text-right text-gray-500">{r.target ? fmtNum(r.target) : '—'}</td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-800">{r.hasData ? fmtNum(r.current) : '—'}</td>
+                      <td className="px-4 py-3 text-right">{r.hasData ? <RateBadge rate={r.rate} /> : <span className="text-xs text-gray-300">—</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ━━ 3. 하단 통계 4칸 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map(({ label, value, sub, icon, color, bg }) => (
-          <div key={label} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-gray-400 leading-tight">{label}</p>
-              <div className={`p-2 rounded-xl ${bg}`}>
-                <span className={color}>{icon}</span>
-              </div>
+      {/* 3. 예산 현황 */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <SectionTitle>[예산 현황]</SectionTitle>
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-5 py-2.5 text-[10px] font-bold text-gray-400 uppercase text-left">항목</th>
+                <th className="px-5 py-2.5 text-[10px] font-bold text-gray-400 uppercase text-right">금액</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              <tr className="hover:bg-gray-50/50">
+                <td className="px-5 py-3 font-bold text-gray-700">총 예산</td>
+                <td className="px-5 py-3 text-right font-black text-gray-900">{p?.total_budget || '—'}</td>
+              </tr>
+              <tr className="hover:bg-gray-50/50">
+                <td className="px-5 py-3 font-bold text-gray-700">현재 집행</td>
+                <td className="px-5 py-3 text-right font-bold text-indigo-600">
+                  {spentNum > 0 ? `₩ ${spentNum.toLocaleString()}` : '—'}
+                  {spentNum > 0 && <span className="text-[10px] text-gray-400 ml-1">세금계산서 기준</span>}
+                </td>
+              </tr>
+              <tr className="hover:bg-gray-50/50">
+                <td className="px-5 py-3 font-bold text-gray-700">잔액</td>
+                <td className="px-5 py-3 text-right font-bold text-gray-600">{remainingNum > 0 ? `₩ ${remainingNum.toLocaleString()}` : '—'}</td>
+              </tr>
+              <tr className="hover:bg-gray-50/50">
+                <td className="px-5 py-3 font-bold text-gray-700">집행률</td>
+                <td className="px-5 py-3 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="w-24"><Bar value={execRate} /></div>
+                    <span className="font-black text-indigo-600 text-sm shrink-0">{execRate}%</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-5 py-2.5 text-[10px] font-bold text-gray-400 uppercase text-left">재무</th>
+                <th className="px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase text-right">금액</th>
+                <th className="px-5 py-2.5 text-[10px] font-bold text-gray-400 uppercase text-right">비율</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              <tr className="hover:bg-gray-50/50">
+                <td className="px-5 py-3 font-bold text-gray-700">매출 (청구액)</td>
+                <td className="px-4 py-3 text-right font-bold text-indigo-600">{fmtKRW(revenue)}</td>
+                <td className="px-5 py-3 text-right"><span className="text-gray-300 text-xs">—</span></td>
+              </tr>
+              <tr className="hover:bg-gray-50/50">
+                <td className="px-5 py-3 font-bold text-gray-700">매입 (집행액)</td>
+                <td className="px-4 py-3 text-right font-bold text-gray-600">{fmtKRW(cost)}</td>
+                <td className="px-5 py-3 text-right">
+                  {revenue > 0 && cost > 0
+                    ? <span className="text-xs text-gray-500 font-bold">{Math.round((cost / revenue) * 100)}%</span>
+                    : <span className="text-gray-300 text-xs">—</span>}
+                </td>
+              </tr>
+              <tr className="hover:bg-gray-50/50">
+                <td className="px-5 py-3 font-bold text-gray-700">수익 (마진)</td>
+                <td className="px-4 py-3 text-right font-black">
+                  <span className={profit >= 0 ? 'text-emerald-600' : 'text-red-500'}>{fmtKRW(profit)}</span>
+                </td>
+                <td className="px-5 py-3 text-right">
+                  {margin !== null ? <RateBadge rate={margin} /> : <span className="text-gray-300 text-xs">—</span>}
+                </td>
+              </tr>
+              <tr className="bg-gray-50/80">
+                <td className="px-5 py-3 font-black text-gray-800">수익률</td>
+                <td colSpan={2} className="px-5 py-3 text-right">
+                  {margin !== null
+                    ? <span className={`text-lg font-black ${margin >= 20 ? 'text-emerald-600' : margin >= 10 ? 'text-amber-500' : 'text-red-500'}`}>{margin}%</span>
+                    : <span className="text-xs text-gray-300">데이터 관리에서 매출/매입 입력</span>}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 4. 캠페인 현황 */}
+      {campaigns.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <SectionTitle>[캠페인 현황]</SectionTitle>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase text-left">캠페인</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase text-center">단계</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase text-left w-36">진행률</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase text-right">예산</th>
+                <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase text-right">집행</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {campaigns.map(c => (
+                <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <p className="font-bold text-gray-800">{c.name}</p>
+                    {c.dates && <p className="text-[10px] text-gray-400 mt-0.5">{c.dates}</p>}
+                  </td>
+                  <td className="px-4 py-3.5 text-center">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-md border ${PHASE_BADGE[c.phase] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>{c.phase}</span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1"><Bar value={c.progress} color={PHASE_COLOR[c.phase] ?? 'bg-gray-300'} /></div>
+                      <span className="text-xs font-black text-gray-600 shrink-0 w-8 text-right">{c.progress}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5 text-right text-gray-500 font-medium">{c.budget || '—'}</td>
+                  <td className="px-5 py-3.5 text-right font-bold text-indigo-600">{c.spent || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 5. 성과 지표 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: '종합 ROAS',  value: p?.roas  || '—', icon: <TrendingUp size={14} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+          { label: '총 도달수',  value: p?.reach || '—', icon: <Target size={14} />,     color: 'text-teal-500',   bg: 'bg-teal-50'   },
+          { label: '완료 과업',  value: p?.tasks || '—', icon: <Target size={14} />,     color: 'text-violet-500', bg: 'bg-violet-50' },
+          { label: '활성 채널',  value: p?.channels || '—', icon: <Target size={14} />,  color: 'text-amber-500',  bg: 'bg-amber-50'  },
+        ].map(({ label, value, icon, color, bg }) => (
+          <div key={label} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{label}</p>
+              <div className={`p-1.5 rounded-lg ${bg}`}><span className={color}>{icon}</span></div>
             </div>
-            <p className="text-2xl font-black text-gray-900 leading-none mb-1">{value}</p>
-            <p className="text-xs text-gray-400">{sub}</p>
+            <p className="text-xl font-black text-gray-900">{value}</p>
           </div>
         ))}
       </div>
+
     </div>
   );
 };
