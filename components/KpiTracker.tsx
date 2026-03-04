@@ -1,6 +1,8 @@
+"use client";
 import React from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend, Cell } from 'recharts';
 import { Target, TrendingUp, ArrowUpRight, ArrowDownRight, Users } from 'lucide-react';
+import type { ProjectData } from '@/lib/sheets';
 
 const data = [
   { name: '1월', target: 5000, actual: 4800 },
@@ -18,7 +20,19 @@ const qualKpi = [
   { name: '핵심 가치 인지', score: 78, target: 70 },
 ];
 
-export const KpiTracker = () => {
+interface KpiTrackerProps {
+  projectData?: ProjectData | null;
+}
+
+export const KpiTracker = ({ projectData }: KpiTrackerProps = {}) => {
+  // 구글 시트 팔로워 데이터를 KPI 카드에 반영
+  const igFollowers = projectData?.igFollowers ?? 18500;
+  const igTarget = projectData?.igFollowersTarget ?? 25000;
+  const igRate = projectData?.igFollowersRate ?? 74;
+  const kaFollowers = projectData?.kaFollowers ?? 96000;
+  const kaTarget = projectData?.kaFollowersTarget ?? 105000;
+  const kaRate = projectData?.kaFollowersRate ?? 91;
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -113,8 +127,8 @@ export const KpiTracker = () => {
             <Users size={24} />
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase">누적 유입</p>
-            <h4 className="text-2xl font-bold text-gray-900">421,902 <span className="text-sm font-normal text-emerald-500">+15.2%</span></h4>
+            <p className="text-xs font-medium text-gray-400 uppercase">IG 팔로워</p>
+            <h4 className="text-2xl font-bold text-gray-900">{igFollowers.toLocaleString('ko-KR')} <span className="text-sm font-normal text-emerald-500">{igRate}%</span></h4>
           </div>
         </div>
         <div className="bg-white p-6 rounded-xl border border-gray-200 flex items-center gap-5">
@@ -122,8 +136,8 @@ export const KpiTracker = () => {
             <TrendingUp size={24} />
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase">전환율 (CVR)</p>
-            <h4 className="text-2xl font-bold text-gray-900">4.82% <span className="text-sm font-normal text-emerald-500">+0.5%</span></h4>
+            <p className="text-xs font-medium text-gray-400 uppercase">KA 팔로워</p>
+            <h4 className="text-2xl font-bold text-gray-900">{kaFollowers.toLocaleString('ko-KR')} <span className="text-sm font-normal text-emerald-500">{kaRate}%</span></h4>
           </div>
         </div>
         <div className="bg-white p-6 rounded-xl border border-gray-200 flex items-center gap-5">

@@ -55,15 +55,21 @@ function ProgressBar({ value, color = 'bg-indigo-500' }: { value: number; color?
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────
-export const SummaryView = () => {
+import type { ProjectData } from '@/lib/sheets';
+
+interface SummaryViewProps {
+  projectData?: ProjectData | null;
+}
+
+export const SummaryView = ({ projectData }: SummaryViewProps = {}) => {
   const project = {
-    name: '2026 네슬레 스타벅스앳홈 프로젝트',
-    manager: '이슬기 PM',
-    dates: '2026.01.01 ~ 2026.06.30',
+    name: projectData?.name ?? '2026 네슬레 스타벅스앳홈 프로젝트',
+    manager: projectData?.manager ?? '이슬기 PM',
+    dates: projectData?.period ?? '2026.01.01 ~ 2026.06.30',
     progress: 45,
-    totalBudget: '₩ 1,200,000,000',
-    budgetRate: 60,
-    kpi: 82.4,
+    totalBudget: projectData?.totalBudget ?? '₩ 1,200,000,000',
+    budgetRate: projectData?.executionRate ?? 60,
+    kpi: projectData?.igFollowersRate ?? 82.4,
     campaignCount: 2,
   };
 
