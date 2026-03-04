@@ -3,6 +3,7 @@ import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Wallet, Calculator, Percent, Coins, ChevronDown } from 'lucide-react';
 import type { ProjectData } from '@/lib/sheets';
+import type { AdminData } from '@/lib/localData';
 
 const budgetData = [
   { name: 'SNS 채널 운영', value: 150000000, color: '#3b82f6' },
@@ -20,13 +21,16 @@ const marginData = [
 
 interface BudgetManagerProps {
   projectData?: ProjectData | null;
+  adminData?: AdminData | null;
 }
 
-export const BudgetManager = ({ projectData }: BudgetManagerProps = {}) => {
-  const totalBudget = projectData
-    ? parseInt(projectData.totalBudget.replace(/[^0-9]/g, ''))
+export const BudgetManager = ({ projectData, adminData }: BudgetManagerProps = {}) => {
+  const ad = adminData?.project;
+  const budgetStr = ad?.totalBudget ?? projectData?.totalBudget;
+  const totalBudget = budgetStr
+    ? parseInt(budgetStr.replace(/[^0-9]/g, ''))
     : budgetData.reduce((acc, curr) => acc + curr.value, 0);
-  const execRate = projectData?.executionRate ?? 65;
+  const execRate = ad?.executionRate ?? projectData?.executionRate ?? 20;
   const spentBudget = Math.round(totalBudget * (execRate / 100));
 
   return (

@@ -56,33 +56,41 @@ function ProgressBar({ value, color = 'bg-indigo-500' }: { value: number; color?
 
 // ── 메인 컴포넌트 ──────────────────────────────────────
 import type { ProjectData } from '@/lib/sheets';
+import type { AdminData } from '@/lib/localData';
 
 interface SummaryViewProps {
   projectData?: ProjectData | null;
+  adminData?: AdminData | null;
 }
 
-export const SummaryView = ({ projectData }: SummaryViewProps = {}) => {
+export const SummaryView = ({ projectData, adminData }: SummaryViewProps = {}) => {
+  // adminData가 있으면 최우선 사용, 없으면 Google Sheets, 없으면 기본값
+  const ad = adminData?.project;
   const project = {
-    name: projectData?.name ?? '2026 네슬레 스타벅스앳홈 프로젝트',
-    manager: projectData?.manager ?? '이슬기 PM',
-    dates: projectData?.period ?? '2026.01.01 ~ 2026.06.30',
-    progress: 45,
-    totalBudget: projectData?.totalBudget ?? '₩ 1,200,000,000',
-    budgetRate: projectData?.executionRate ?? 60,
-    kpi: projectData?.igFollowersRate ?? 82.4,
-    campaignCount: 2,
+    name: ad?.name ?? projectData?.name ?? '2026 네슬레 스타벅스앳홈 프로젝트',
+    manager: ad?.manager ?? projectData?.manager ?? '이슬기 PM',
+    dates: ad?.period ?? projectData?.period ?? '2026.01.01 ~ 2026.06.30',
+    progress: ad?.progress ?? 45,
+    totalBudget: ad?.totalBudget ?? projectData?.totalBudget ?? '₩ 150,000,000',
+    budgetRate: ad?.executionRate ?? projectData?.executionRate ?? 20,
+    kpi: ad?.kpi ?? projectData?.igFollowersRate ?? 74,
+    riskGreen: ad?.riskGreen ?? 3,
+    riskYellow: ad?.riskYellow ?? 1,
+    riskRed: ad?.riskRed ?? 0,
+    campaignCount: adminData?.campaigns?.length ?? 2,
   };
 
-  const campaigns = [
+  const campaigns = adminData?.campaigns ?? [
     { id: 1, name: '인스타그램 & 카카오톡 기획/운영', phase: '제작', progress: 75, budget: '₩ 450M', spent: '₩ 380M', dates: '01.01 - 04.30' },
     { id: 2, name: '인플루언서 바이럴 캠페인',        phase: '운영', progress: 30, budget: '₩ 250M', spent: '₩ 80M',  dates: '03.01 - 06.15' },
   ];
 
+  const st = adminData?.stats;
   const stats = [
-    { label: '종합 ROAS',  value: '342%',  sub: '전 캠페인 평균',      icon: <TrendingUp size={16} />,   color: 'text-indigo-500', bg: 'bg-indigo-50' },
-    { label: '총 도달수',  value: '24.5M', sub: '목표 대비 105%',      icon: <Users size={16} />,        color: 'text-teal-500',   bg: 'bg-teal-50'   },
-    { label: '완료 과업',  value: '12/48', sub: '전체 마일스톤 기준',  icon: <CheckCircle2 size={16} />, color: 'text-violet-500', bg: 'bg-violet-50' },
-    { label: '활성 채널',  value: '12개',  sub: '글로벌 채널 통합',    icon: <Flag size={16} />,         color: 'text-amber-500',  bg: 'bg-amber-50'  },
+    { label: '종합 ROAS',  value: st?.roas ?? '342%',  sub: '전 캠페인 평균',      icon: <TrendingUp size={16} />,   color: 'text-indigo-500', bg: 'bg-indigo-50' },
+    { label: '총 도달수',  value: st?.reach ?? '24.5M', sub: '목표 대비 105%',      icon: <Users size={16} />,        color: 'text-teal-500',   bg: 'bg-teal-50'   },
+    { label: '완료 과업',  value: st?.tasks ?? '12/48', sub: '전체 마일스톤 기준',  icon: <CheckCircle2 size={16} />, color: 'text-violet-500', bg: 'bg-violet-50' },
+    { label: '활성 채널',  value: st?.channels ?? '12개',  sub: '글로벌 채널 통합',    icon: <Flag size={16} />,         color: 'text-amber-500',  bg: 'bg-amber-50'  },
   ];
 
   return (
@@ -173,9 +181,9 @@ export const SummaryView = ({ projectData }: SummaryViewProps = {}) => {
             <div className="flex items-center gap-3 pt-0.5">
               <div className="flex items-center -space-x-2">
                 {[
-                  { n: 3, ring: 'ring-emerald-200', bg: 'bg-emerald-100', text: 'text-emerald-700' },
-                  { n: 1, ring: 'ring-amber-200',   bg: 'bg-amber-100',   text: 'text-amber-700'   },
-                  { n: 0, ring: 'ring-rose-200',     bg: 'bg-rose-100',    text: 'text-rose-700'    },
+                  { n: project.riskGreen,  ring: 'ring-emerald-200', bg: 'bg-emerald-100', text: 'text-emerald-700' },
+                  { n: project.riskYellow, ring: 'ring-amber-200',   bg: 'bg-amber-100',   text: 'text-amber-700'   },
+                  { n: project.riskRed,    ring: 'ring-rose-200',    bg: 'bg-rose-100',    text: 'text-rose-700'    },
                 ].map((r, i) => (
                   <div key={i} className={`w-8 h-8 rounded-full ring-2 ${r.ring} ${r.bg} flex items-center justify-center text-xs font-bold ${r.text}`}>
                     {r.n}
@@ -183,7 +191,8 @@ export const SummaryView = ({ projectData }: SummaryViewProps = {}) => {
                 ))}
               </div>
               <p className="text-xs text-gray-500">
-                4건 중 <span className="font-semibold text-amber-600">1건 주의</span>
+                {project.riskGreen + project.riskYellow + project.riskRed}건 중{' '}
+                <span className="font-semibold text-amber-600">{project.riskYellow}건 주의</span>
               </p>
             </div>
           </div>

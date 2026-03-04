@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from 'react';
-import { LayoutDashboard, BarChart3, PieChart, Calendar, Database, Clock, Sparkles, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { LayoutDashboard, BarChart3, PieChart, Calendar, Database, Clock, Sparkles, RefreshCw, Settings } from 'lucide-react';
 import { SummaryView } from '@/components/SummaryView';
 import { KpiTracker } from '@/components/KpiTracker';
 import { BudgetManager } from '@/components/BudgetManager';
 import { TimelineView } from '@/components/TimelineView';
 import { DataBoard } from '@/components/DataBoard';
 import type { ProjectData } from '@/lib/sheets';
+import { getAdminData, type AdminData } from '@/lib/localData';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -30,8 +32,14 @@ interface Props {
 }
 
 export default function DashboardClient({ projectData }: Props) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [refreshing, setRefreshing] = useState(false);
+  const [adminData, setAdminData] = useState<AdminData | null>(null);
+
+  useEffect(() => {
+    setAdminData(getAdminData());
+  }, []);
 
   const activeLabel = navItems.find(n => n.id === activeTab)?.label ?? '';
 
@@ -44,12 +52,12 @@ export default function DashboardClient({ projectData }: Props) {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'summary':  return <SummaryView projectData={projectData} />;
+      case 'summary':  return <SummaryView projectData={projectData} adminData={adminData} />;
       case 'kpi':      return <KpiTracker projectData={projectData} />;
-      case 'budget':   return <BudgetManager projectData={projectData} />;
+      case 'budget':   return <BudgetManager projectData={projectData} adminData={adminData} />;
       case 'timeline': return <TimelineView />;
       case 'data':     return <DataBoard />;
-      default:         return <SummaryView projectData={projectData} />;
+      default:         return <SummaryView projectData={projectData} adminData={adminData} />;
     }
   };
 
@@ -96,7 +104,16 @@ export default function DashboardClient({ projectData }: Props) {
           })}
         </nav>
 
-        <div className="px-3 pb-4">
+        <div className="px-3 pb-4 space-y-2">
+          <button
+            onClick={() => router.push('/admin')}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-indigo-50 hover:text-indigo-700 font-medium transition-all duration-150"
+          >
+            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-transparent">
+              <Settings size={14} />
+            </span>
+            데이터 관리
+          </button>
           <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
               <span className="relative flex h-2 w-2">
