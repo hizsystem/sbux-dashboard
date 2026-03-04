@@ -27,6 +27,8 @@ export interface ProjectRow {
   channels: string;
   sheets_url: string | null;
   sheets_gid: string | null;
+  revenue: number;   // 매출 (원)
+  cost: number;      // 매입 (원)
   created_at: string;
   updated_at: string;
 }

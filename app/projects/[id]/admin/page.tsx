@@ -145,7 +145,7 @@ export default function ProjectAdminPage() {
   const setField = (key: keyof ProjectRow, value: string) => {
     setProject(prev => prev ? {
       ...prev,
-      [key]: ['progress','execution_rate','kpi','risk_green','risk_yellow','risk_red'].includes(key)
+      [key]: ['progress','execution_rate','kpi','risk_green','risk_yellow','risk_red','revenue','cost'].includes(key)
         ? Number(value) : value,
     } : prev);
   };
@@ -271,7 +271,37 @@ export default function ProjectAdminPage() {
           </div>
         </div>
 
-        {/* 2. 수치 지표 */}
+        {/* 2. 재무 정보 */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+          <SectionHeader icon={<TrendingUp size={14} />} title="재무 정보 (매출 / 매입)" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="매출 (원)" value={project.revenue ?? 0} onChange={v => setField('revenue', v)} type="number" suffix="원" placeholder="예: 150000000" />
+            <Field label="매입 (원)" value={project.cost ?? 0} onChange={v => setField('cost', v)} type="number" suffix="원" placeholder="예: 120000000" />
+          </div>
+          {(project.revenue > 0 || project.cost > 0) && (
+            <div className="mt-4 grid grid-cols-3 gap-3 bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">수익</p>
+                <p className={`text-sm font-black ${(project.revenue - project.cost) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {((project.revenue - project.cost) >= 0 ? '+' : '')}
+                  {((project.revenue - project.cost) / 10000).toFixed(0)}만원
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">수익률</p>
+                <p className="text-sm font-black text-indigo-600">
+                  {project.revenue > 0 ? `${Math.round(((project.revenue - project.cost) / project.revenue) * 100)}%` : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">총 예산</p>
+                <p className="text-sm font-bold text-gray-600">{project.total_budget || '—'}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 3. 수치 지표 */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
           <SectionHeader icon={<TrendingUp size={14} />} title="수치 지표" />
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

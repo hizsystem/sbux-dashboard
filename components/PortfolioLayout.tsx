@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Sparkles, Plus, FolderOpen, LayoutGrid, CheckCircle2, PauseCircle, Circle } from 'lucide-react';
 import { NewProjectModal } from '@/components/NewProjectModal';
 import { ProjectCard } from '@/components/ProjectCard';
+import { FinancialSummary } from '@/components/FinancialSummary';
 import type { ProjectRow } from '@/lib/db';
 
 type Filter = 'all' | 'active' | 'paused' | 'completed';
@@ -123,6 +124,9 @@ export function PortfolioLayout({ projects }: { projects: ProjectRow[] }) {
         </header>
 
         <main className="flex-1 px-8 py-8">
+          {/* 재무 요약 — 전체 보기일 때만 표시 */}
+          {filter === 'all' && <FinancialSummary projects={projects} />}
+
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-gray-400">
               <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
