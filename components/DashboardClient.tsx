@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, BarChart3, PieChart, Calendar, Database, Clock, Sparkles, RefreshCw, Settings, ChevronLeft, Kanban, Activity } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { LayoutDashboard, BarChart3, PieChart, Calendar, Database, Clock, Sparkles, RefreshCw, Settings, ChevronLeft, Activity } from 'lucide-react';
 import { SummaryView } from '@/components/SummaryView';
 import { KpiTracker } from '@/components/KpiTracker';
 import { BudgetManager } from '@/components/BudgetManager';
 import { TimelineView } from '@/components/TimelineView';
 import { DataBoard } from '@/components/DataBoard';
-import { CampaignKanban } from '@/components/CampaignKanban';
 import { ActivityLog } from '@/components/ActivityLog';
 import type { ProjectData } from '@/lib/sheets';
 import type { ProjectRow, CampaignRow, MilestoneRow, ActivityRow } from '@/lib/db';
@@ -19,11 +19,10 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type TabType = 'summary' | 'kanban' | 'kpi' | 'budget' | 'timeline' | 'data' | 'activity';
+type TabType = 'summary' | 'kpi' | 'budget' | 'timeline' | 'data' | 'activity';
 
 const navItems = [
   { id: 'summary',  label: 'SUMMARY',      icon: LayoutDashboard },
-  { id: 'kanban',   label: '캠페인 칸반',   icon: Kanban          },
   { id: 'kpi',      label: 'KPI 트래킹',   icon: BarChart3       },
   { id: 'budget',   label: '예산/마진',     icon: PieChart        },
   { id: 'timeline', label: '타임라인',      icon: Calendar        },
@@ -44,6 +43,18 @@ export default function DashboardClient({ project, campaigns, milestones, activi
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel(`project-${project.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `id=eq.${project.id}` }, () => router.refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns', filter: `project_id=eq.${project.id}` }, () => router.refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'milestones', filter: `project_id=eq.${project.id}` }, () => router.refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log', filter: `project_id=eq.${project.id}` }, () => router.refresh())
+      .subscribe();
+    return () => { supabase!.removeChannel(channel); };
+  }, [project.id, router]);
+
   const activeLabel = navItems.find(n => n.id === activeTab)?.label ?? '';
 
   const handleRefresh = () => {
@@ -54,13 +65,13 @@ export default function DashboardClient({ project, campaigns, milestones, activi
   const renderContent = () => {
     switch (activeTab) {
       case 'summary':  return <SummaryView project={project} campaigns={campaigns} projectData={projectData} />;
-      case 'kanban':   return <CampaignKanban campaigns={campaigns} />;
       case 'kpi':      return <KpiTracker projectData={projectData} />;
       case 'budget':   return <BudgetManager project={project} projectData={projectData} />;
       case 'timeline': return <TimelineView milestones={milestones} projectId={project.id} />;
       case 'data':     return <DataBoard />;
       case 'activity': return <ActivityLog activities={activities} />;
       default:         return <SummaryView project={project} campaigns={campaigns} projectData={projectData} />;
+
     }
   };
 
